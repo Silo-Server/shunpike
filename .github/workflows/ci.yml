@@ -24,12 +24,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Silo-Server/quic-go
-          ref: v0.64.1-silo.1
+          ref: v0.64.1-patch.1
           path: forks/quic-go
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Silo-Server/tailscale
-          ref: v1.104.2-silo.1
+          ref: v1.104.2-patch.1
           path: forks/tailscale
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
