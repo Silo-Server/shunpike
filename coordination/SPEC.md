@@ -100,9 +100,34 @@ keys; neither is repeated in the netmap.
 | Consecutive budget overruns before close | 3 |
 | Connection byte window | 1 MiB per 90 s |
 
+The pair frame bucket, pair byte bucket and connection byte window rows are
+defaults. `protocol.BudgetLimits` replaces any of them: set it as
+`Budget.Limits` for `CheckFrame`, or as `RegionOptions.Budget.Limits` for a
+region. A zero or negative field keeps its default, and the zero value keeps all
+of them. The five fields are the pair frame burst and refill rate, the pair byte
+burst and refill rate, and the connection byte limit; the 90 s window and the
+three-overrun close are fixed. The stream that `Region.DialLocal` returns carries
+every pair of its host, so its byte total grows with the number of devices.
+`RegionOptions.LocalConnectionBytes` sets that stream's connection byte limit
+apart from the devices' limit, and `LocalConnectionBytesPerPair` raises it to
+that many bytes for each pair that carried a frame in the current 90 s window when
+the product is larger; zero keeps the shared limit. A pair that expires in the
+window still counts until the window ends, so the limit never falls within a
+window; the next window counts only the pairs that carry a frame in it. CheckFrame
+takes such a limit through `Budget.ConnectionLimit`.
+
 Server defaults describe the coordination service; the wire validators check
 the announced values and do not insert defaults. A consumer starts its lease
 at the request's start so response latency cannot extend authorization.
+
+## Protocol Revision
+
+`ProtocolRevision` is an opaque string, currently `"1"`. A consumer that
+publishes or checks it compares for exact equality only; it assumes no order
+between values. A client uses the direct path only when the revision it
+receives equals a value it knows. A change to the wire shapes, limits or decoder
+rules in this package, to signaling or discovery behavior, or to the N4 transport
+(QUIC v1, HTTP/3 with `h3`, TLS 1.3 pinned by `tls_pin`), needs a new value.
 
 ## Netmap Version
 
@@ -132,8 +157,11 @@ The zero-value `Budget` uses its own pair and connection state. To share limits,
 set `Budget.Pair` to one shared `Budget` for the normalized authorized pair,
 including both directions, and `Budget.Connection` to one shared `Budget` for
 the connection. These fields select storage directly, without following another
-selector. A new connection uses new connection state while retaining live pair
-state. This keeps a connection's total independent of how many pairs it carries.
+selector. `Budget.Limits` is read from the `Budget` passed to `CheckFrame`, never
+from the storage `Pair` or `Connection` selects, so every `Budget` passed for one
+traffic stream carries the same limits. A new connection uses new connection
+state while retaining live pair state. This keeps a connection's total
+independent of how many pairs it carries.
 
 | Frame Type | Rule |
 |---|---|

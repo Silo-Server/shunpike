@@ -226,8 +226,10 @@ func (s *Server) Netmap(ctx context.Context, p Principal, sinceVersion string) (
 	return s.view(ctx, p)
 }
 
-// PutHost validates and renews a host's presence for Presence, then wakes all
-// held netmaps. The caller publishes the host again on change and refresh.
+// PutHost validates and renews a host's presence for Presence. It wakes all held
+// netmaps only when the stored host is new or its node key, disco key, endpoints
+// or origin differ; an unchanged entry renews presence without a wake. The
+// caller publishes the host again on change and refresh.
 func (s *Server) PutHost(ctx context.Context, h HostEntry) error {
 	home := 0
 	if len(s.o.Regions) > 0 {
@@ -238,11 +240,20 @@ func (s *Server) PutHost(ctx context.Context, h HostEntry) error {
 		return err
 	}
 	now := s.o.Clock()
+	hosts, err := s.o.Store.Hosts(ctx, now)
+	if err != nil {
+		return fmt.Errorf("read hosts: %w", err)
+	}
+	unchanged := slices.ContainsFunc(hosts, func(old HostEntry) bool {
+		return old.Label == h.Label && old.NodeKey == h.NodeKey && old.DiscoKey == h.DiscoKey && old.Origin == h.Origin && slices.Equal(old.Endpoints, h.Endpoints)
+	})
 	h.PresenceExpires = now.Add(s.o.Presence)
 	if err := s.o.Store.PutHost(ctx, h, now); err != nil {
 		return fmt.Errorf("put host: %w", err)
 	}
-	s.WakeAll()
+	if !unchanged {
+		s.WakeAll()
+	}
 	return nil
 }
 

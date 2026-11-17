@@ -314,3 +314,40 @@ func TestDirectoryInvalidationDuringRead(t *testing.T) {
 		}
 	})
 }
+
+func TestDirectoryReloadReplacesInPlace(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		st := &directoryStore{Store: NewMemoryStore()}
+		now := time.Now()
+		entry := directoryDevice(t, st, 1, now.Add(time.Hour), now)
+		d := NewDirectory(st, DirectoryOptions{Clock: time.Now})
+		directoryHit(t, d, node(1))
+		takeChanged(t, d)
+		next := registration(1)
+		next.Endpoints = []netip.AddrPort{endpoint(9)}
+		requireNoError(t, st.PutRegistration(t.Context(), entry.Ref, next, now.Add(time.Hour), now))
+		release := make(chan struct{})
+		st.mu.Lock()
+		st.release = release
+		st.mu.Unlock()
+		go d.Reload(t.Context(), node(1))
+		synctest.Wait()
+		if got := d.Devices(); len(got) != 1 {
+			t.Errorf("device missing while the reload is in flight: %+v", got)
+		}
+		select {
+		case <-d.Changed():
+			t.Error("Changed fired before the reload landed")
+		default:
+		}
+		close(release)
+		synctest.Wait()
+		got := d.Devices()
+		if len(got) != 1 || len(got[0].Endpoints) != 1 || got[0].Endpoints[0] != endpoint(9) {
+			t.Fatalf("reload did not replace the entry: %+v", got)
+		}
+		takeChanged(t, d)
+		d.Reload(t.Context(), node(1))
+		noChanged(t, d)
+	})
+}

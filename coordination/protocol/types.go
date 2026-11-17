@@ -20,6 +20,14 @@ var ErrInvalid = errors.New("invalid coordination message")
 // NetmapRequestTimeout bounds a client's netmap request; server holds stay below it.
 const NetmapRequestTimeout = 35 * time.Second
 
+// ProtocolRevision names the revision of the coordination contract. Its value is
+// opaque: a consumer compares it for exact equality with a value it knows and
+// reads no order or meaning into it. A change to the wire shapes, limits or
+// decoder rules in this package, to signaling or discovery behavior, or to the
+// N4 transport (QUIC v1, HTTP/3 with "h3", TLS 1.3 pinned by tls_pin), needs a
+// new value.
+const ProtocolRevision = "1"
+
 // NodeKey is a public node identity. Its text is "nodekey:" and 64 lowercase hex digits.
 // The zero value represents a missing identity and is invalid in messages.
 type NodeKey [32]byte

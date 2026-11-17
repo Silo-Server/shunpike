@@ -57,7 +57,7 @@ func failedHTTP3(t *testing.T, dials *atomic.Int32) *http3.Transport {
 	t.Helper()
 	h := &http3.Transport{Dial: func(context.Context, string, *tls.Config, *quic.Config) (*quic.Conn, error) {
 		dials.Add(1)
-		return nil, errors.New("injected dial failure")
+		return nil, &dialError{errors.New("injected dial failure")}
 	}}
 	t.Cleanup(func() {
 		if err := h.Close(); err != nil {

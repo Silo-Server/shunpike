@@ -237,6 +237,20 @@ func (d *Directory) Invalidate(k protocol.NodeKey) {
 	}
 }
 
+// Reload reads k from the store and replaces its cached entry in place. The old
+// entry stays visible until the read lands, and Changed fires only when the new
+// entry differs. A failed read keeps the old entry. The call rejects completion
+// of any earlier in-flight read for k. Use Invalidate to drop a key.
+func (d *Directory) Reload(ctx context.Context, k protocol.NodeKey) {
+	r := &directoryRead{key: k}
+	d.mu.Lock()
+	d.pending[k] = r
+	d.mu.Unlock()
+	readCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), directoryReadTimeout)
+	defer cancel()
+	d.load(readCtx, r)
+}
+
 // Devices returns copies of held live device entries, sorted by node key.
 // Expired entries are removed and fire Changed, including during a store outage.
 func (d *Directory) Devices() []PeerEntry {

@@ -27,15 +27,26 @@ import (
 const admissionWait = 2 * time.Second
 
 // RegionOptions supplies the shared coordinator and peer directory. A zero
-// PrivateKey generates a new identity; a zero Budget uses protocol defaults.
-// Clock nil uses time.Now and Logger nil discards logs. Keys stay in process.
+// PrivateKey generates a new identity. Budget.Limits sets the envelope numbers
+// for every stream and pair; a zero Limits, or a zero field in it, uses the
+// protocol default, and Budget's other fields are ignored. The stream DialLocal
+// returns carries every pair of its host, so its connection byte total grows with
+// the number of devices. LocalConnectionBytes replaces Budget.Limits.ConnectionBytes
+// for that stream, and LocalConnectionBytesPerPair raises its limit to that many
+// bytes for each pair that carried a frame in the current 90 s window when the
+// product is larger. A pair that expires in the window still counts until the
+// window ends, so the limit never falls within a window. Zero keeps the shared
+// limit. Clock nil uses time.Now and Logger nil discards logs. Keys stay
+// in process.
 type RegionOptions struct {
-	Server     *Server
-	Directory  *Directory
-	PrivateKey [32]byte
-	Budget     protocol.Budget
-	Logger     *slog.Logger
-	Clock      func() time.Time
+	Server                      *Server
+	Directory                   *Directory
+	PrivateKey                  [32]byte
+	Budget                      protocol.Budget
+	LocalConnectionBytes        int
+	LocalConnectionBytesPerPair int
+	Logger                      *slog.Logger
+	Clock                       func() time.Time
 }
 
 // Forwarder sends a packet to another region endpoint. Payload is lent only
@@ -156,8 +167,14 @@ type regionConn struct {
 	local   bool
 	source  protocol.NodeKey
 	pending []byte
-	budget  protocol.Budget
-	failure error
+	// windowAt and carried follow the connection byte window of this stream: carried
+	// holds the peers whose pairs carried a frame since windowAt. Both are used
+	// under Region.mu and only when LocalConnectionBytesPerPair is set.
+	windowAt int64
+	carried  map[protocol.NodeKey]struct{}
+	budget   protocol.Budget
+	limits   protocol.BudgetLimits
+	failure  error
 }
 
 // Serve authenticates a device and blocks until transport closure, cancellation
@@ -180,7 +197,11 @@ func (r *Region) serve(ctx context.Context, conn net.Conn, p Principal, local bo
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	c := &regionConn{Conn: conn, r: r, ctx: ctx, cancel: cancel, p: p, local: local, budget: r.o.Budget}
+	limits := r.o.Budget.Limits
+	if local && r.o.LocalConnectionBytes > 0 {
+		limits.ConnectionBytes = r.o.LocalConnectionBytes
+	}
+	c := &regionConn{Conn: conn, r: r, ctx: ctx, cancel: cancel, p: p, local: local, budget: r.o.Budget, limits: limits}
 	r.mu.Lock()
 	if r.closed {
 		r.mu.Unlock()
@@ -302,6 +323,20 @@ func (r *Region) pairBudget(a, b PeerEntry, now time.Time) *protocol.Budget {
 	return &p.budget
 }
 
+// carry records that the pair with peer carried a frame in the current window of
+// this stream, and starts a new window when the last one has passed. It is called
+// under Region.mu for every frame of the local stream, so it keeps pace with the
+// window protocol.CheckFrame keeps for the same frames.
+func (c *regionConn) carry(peer protocol.NodeKey, counted bool, nowMillis int64) {
+	if c.carried == nil || nowMillis-c.windowAt >= protocol.ConnectionWindowMillis {
+		c.carried = make(map[protocol.NodeKey]struct{})
+		c.windowAt = nowMillis
+	}
+	if counted {
+		c.carried[peer] = struct{}{}
+	}
+}
+
 func minTime(a, b time.Time) time.Time {
 	if a.Before(b) {
 		return a
@@ -350,7 +385,11 @@ func (c *regionConn) Read(p []byte) (int, error) {
 		r := c.r
 		r.mu.Lock()
 		now := r.o.Clock()
-		budget := protocol.Budget{Pair: &c.budget, Connection: &c.budget}
+		budget := protocol.Budget{Limits: c.limits, Pair: &c.budget, Connection: &c.budget}
+		if c.local && r.o.LocalConnectionBytesPerPair > 0 {
+			c.carry(b.NodeKey, live && ft == byte(derp.FrameSendPacket) && !first, now.UnixMilli())
+			budget.ConnectionLimit = func() int { return r.o.LocalConnectionBytesPerPair * len(c.carried) }
+		}
 		if live && ft == byte(derp.FrameSendPacket) && !first {
 			budget.Pair = r.pairBudget(a, b, now)
 		}
@@ -442,7 +481,7 @@ func (r *Region) Deliver(src, dst protocol.NodeKey, payload []byte) error {
 		now := r.o.Clock()
 		// Only the pair state is shared here; one device cannot spend another's
 		// connection allowance through the process-wide delivery transport.
-		budget := protocol.Budget{Pair: r.pairBudget(a, b, now)}
+		budget := protocol.Budget{Limits: r.o.Budget.Limits, Pair: r.pairBudget(a, b, now)}
 		v := protocol.CheckFrame(byte(derp.FrameSendPacket), body, a.DiscoKey[:], false, "", true, &budget, now.UnixMilli())
 		if v.Action != "accept" {
 			switch v.Reason {

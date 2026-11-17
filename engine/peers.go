@@ -217,8 +217,8 @@ func (e *Engine) applyPeersLocked(next map[key.NodePublic]Peer, now time.Time) e
 	if e.magic != nil {
 		for k, n := range old {
 			if v, ok := peers[k]; !ok {
-				e.magic.RemovePeer(n.ID())
 				e.closePeer(k)
+				e.magic.RemovePeer(n.ID())
 			} else if v.DiscoKey() != n.DiscoKey() {
 				e.closePeer(k)
 			}

@@ -27,9 +27,10 @@ func secureURL(raw string) error {
 
 // WebSocketDialer returns a binary DERP stream dialer. Each attempt calls headers
 // afresh; its errors are wrapped. HTTPS, TLS verification and no redirects apply.
+// The dialer uses no proxy and reads no environment variable.
 // A nil headers function supplies no credential headers. The caller closes streams.
 func WebSocketDialer(tlsConfig *tls.Config, headers func(context.Context) (http.Header, error)) func(ctx context.Context, url string) (net.Conn, error) {
-	tr := &http.Transport{Proxy: http.ProxyFromEnvironment}
+	tr := &http.Transport{}
 	if tlsConfig != nil {
 		tr.TLSClientConfig = tlsConfig.Clone()
 	}

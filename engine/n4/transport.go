@@ -42,9 +42,11 @@ type Transport struct {
 }
 
 // RoundTrip sends an HTTPS request to a resolved peer. Unresolved hosts fail
-// before socket access. A failed bodyless GET or HEAD retries once only after
-// Resolve supplies a different node key or SPKI pin, within the handshake
-// timeout. Other requests are never replayed by this transport.
+// before socket access. A bodyless GET or HEAD whose dial or handshake fails
+// retries once only after Resolve supplies a different node key or SPKI pin,
+// within the handshake timeout. That includes the re-dial that follows a cached
+// connection found dead. A request that fails on an established connection
+// returns its error at once. Other requests are never replayed by this transport.
 func (t *Transport) RoundTrip(r *http.Request) (*http.Response, error) {
 	if r == nil || r.URL == nil || r.URL.Scheme != "https" || r.URL.Host == "" || r.URL.User != nil {
 		return nil, errors.New("HTTPS peer origin required")
@@ -64,7 +66,7 @@ func (t *Transport) RoundTrip(r *http.Request) (*http.Response, error) {
 		return nil, errors.New("invalid TLS pin")
 	}
 	res, err := t.roundTrip(r, host, k, pin)
-	if err == nil || r.Context().Err() != nil || (r.Method != http.MethodGet && r.Method != http.MethodHead) || (r.Body != nil && r.Body != http.NoBody) {
+	if _, dialFailed := errors.AsType[*dialError](err); err == nil || !dialFailed || r.Context().Err() != nil || (r.Method != http.MethodGet && r.Method != http.MethodHead) || (r.Body != nil && r.Body != http.NoBody) {
 		return res, err
 	}
 	wait, cancel := context.WithTimeout(r.Context(), t.Policy.QUICConfig().HandshakeIdleTimeout)
@@ -92,6 +94,13 @@ func (t *Transport) RoundTrip(r *http.Request) (*http.Response, error) {
 		}
 	}
 }
+
+// dialError marks an error from the dial or the handshake, before a connection
+// exists. It keeps the underlying error visible to errors.Is and errors.As.
+type dialError struct{ err error }
+
+func (e *dialError) Error() string { return e.err.Error() }
+func (e *dialError) Unwrap() error { return e.err }
 
 func validPin(pin string) bool {
 	digest, err := base64.StdEncoding.DecodeString(pin)
@@ -124,11 +133,11 @@ func (t *Transport) roundTrip(r *http.Request, host string, k protocol.NodeKey, 
 		tr.Dial = func(ctx context.Context, _ string, conf *tls.Config, qc *quic.Config) (*quic.Conn, error) {
 			currentKey, currentPin, ok := t.Resolve(host)
 			if !ok || currentKey != k || currentPin != pin {
-				return nil, errors.New("peer identity changed during dial")
+				return nil, &dialError{errors.New("peer identity changed during dial")}
 			}
 			c, err := udp.Dial(ctx, engine.Addr{Key: k}, conf, qc)
 			if err != nil {
-				return nil, err
+				return nil, &dialError{err}
 			}
 			if err := t.Engine.TrackConnection(c); err != nil {
 				_ = c.CloseWithError(0x100, "no peer lease")

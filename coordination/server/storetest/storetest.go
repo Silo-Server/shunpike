@@ -235,6 +235,18 @@ func Run(t *testing.T, newStore func(t *testing.T) server.Store) {
 		if err != nil || len(got) != 0 {
 			t.Fatalf("empty list: %+v %v", got, err)
 		}
+		expiry := now.Add(time.Second)
+		if err := st.PutRegistration(ctx, a.Ref, reg(a), expiry, now); err != nil {
+			t.Fatal(err)
+		}
+		got, err = st.ListDevices(ctx, "a", now)
+		if err != nil || len(got) != 2 || got[0].Registration == nil || !reflect.DeepEqual(*got[0].Registration, reg(a)) || !got[0].PresenceExpires.Equal(expiry) || got[1].Registration != nil {
+			t.Fatalf("ListDevices must return the live registration: %+v %v", got, err)
+		}
+		got, err = st.ListDevices(ctx, "a", expiry)
+		if err != nil || len(got) != 2 || got[0].Registration != nil {
+			t.Fatalf("ListDevices must drop an expired registration: %+v %v", got, err)
+		}
 	})
 	t.Run("WithdrawPreservesSiblingsAndCap", func(t *testing.T) {
 		st := newStore(t)

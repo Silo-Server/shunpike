@@ -420,3 +420,100 @@ func TestTransportRetriesAfterHostRestart(t *testing.T) {
 		t.Fatal("GET did not retry after identity update")
 	}
 }
+
+// A cached connection to a host that restarted is dead. The transport re-dials
+// once, and that dial fails on the old pin: it is a dial failure, so the GET waits
+// for the resolver to supply the new pin instead of returning the error at once.
+func TestTransportWaitsAfterRedialFailsOnDeadConnection(t *testing.T) {
+	k := privateKey(t)
+	a, b := testEngine(t, k, 0), testEngine(t, privateKey(t), 0)
+	pair(t, a, b)
+	tc, pin := testTLS(t)
+	stop := startServer(t, a, NewServer(a, tc, DefaultServerPolicy(), rangeHandler()))
+	var current atomic.Value
+	current.Store(pin)
+	tr := transportFor(t, b, a.PublicKey(), pin)
+	tr.Resolve = func(string) (protocol.NodeKey, string, bool) { return k.Public(), current.Load().(string), true }
+	// The first GET leaves its connection cached; the restart below kills it.
+	checkRange(t, rangeRequest(t, tr))
+	port := a.LocalPort()
+	stop()
+	if err := a.Close(); err != nil {
+		t.Fatal(err)
+	}
+	next := testEngine(t, k, port)
+	pair(t, next, b)
+	newTLS, newPin := testTLS(t)
+	startServer(t, next, NewServer(next, newTLS, DefaultServerPolicy(), rangeHandler()))
+	ctx, cancel := context.WithTimeout(t.Context(), 8*time.Second)
+	defer cancel()
+	r, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://peer.invalid/media", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Header.Set("Range", "bytes=10-15")
+	type result struct {
+		response *http.Response
+		err      error
+	}
+	done := make(chan result, 1)
+	go func() { res, err := tr.RoundTrip(r); done <- result{res, err} }()
+	select {
+	case got := <-done:
+		if got.response != nil {
+			_ = got.response.Body.Close()
+		}
+		t.Fatalf("GET returned (%v) before the resolver supplied the new pin, want it to wait", got.err)
+	case <-time.After(time.Second):
+	}
+	current.Store(newPin)
+	select {
+	case got := <-done:
+		if got.err != nil {
+			t.Fatal(got.err)
+		}
+		defer func() {
+			if err := got.response.Body.Close(); err != nil {
+				t.Error(err)
+			}
+		}()
+		checkRange(t, got.response)
+	case <-ctx.Done():
+		t.Fatal("GET did not retry after the pin changed")
+	}
+}
+
+// A request that reaches a live connection and fails there is not a key or pin
+// problem, so the transport returns its error without waiting for the resolver
+// to change.
+func TestTransportReturnsConnectedFailureAtOnce(t *testing.T) {
+	a, b := testEngine(t, privateKey(t), 0), testEngine(t, privateKey(t), 0)
+	pair(t, a, b)
+	tc, pin := testTLS(t)
+	h := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		// HTTP/3 forbids this field; the client refuses the response.
+		w.Header().Set("Transfer-Encoding", "chunked")
+		_, _ = w.Write([]byte("body"))
+	})
+	startServer(t, a, NewServer(a, tc, DefaultServerPolicy(), h))
+	tr := transportFor(t, b, a.PublicKey(), pin)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	r, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://peer.invalid/media", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	res, err := tr.RoundTrip(r)
+	elapsed := time.Since(start)
+	if err == nil {
+		_ = res.Body.Close()
+		t.Fatal("response with a forbidden header was accepted")
+	}
+	if !strings.Contains(err.Error(), "transfer-encoding") {
+		t.Fatalf("error = %v, want the refused header", err)
+	}
+	if elapsed > time.Second {
+		t.Fatalf("error took %v, want it returned at once", elapsed)
+	}
+}

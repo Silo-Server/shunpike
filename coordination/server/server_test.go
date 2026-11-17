@@ -225,6 +225,50 @@ func TestNetmapLongPoll(t *testing.T) {
 		requireNoError(t, <-done)
 	})
 }
+func TestPutHostWakesOnlyOnChange(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		st := NewMemoryStore()
+		s := newTestServer(t, st, Options{Clock: time.Now})
+		p := enroll(t, s, "a", 1, time.Now().Add(time.Hour))
+		requireNoError(t, s.Register(t.Context(), p, registration(1)))
+		h := HostEntry{Label: "host-100", NodeKey: node(100), DiscoKey: disco(100), Endpoints: []netip.AddrPort{endpoint(100)}, Origin: "origin-a"}
+		m := snapshot(t, s, p)
+		held := holdNetmap(s, t.Context(), p, m.Version)
+		assertHeld(t, held)
+		requireNoError(t, s.PutHost(t.Context(), h))
+		if got := awaitNetmap(t, held); len(got.Hosts) != 1 {
+			t.Fatalf("new host did not wake with the host: %+v", got)
+		}
+		m = snapshot(t, s, p)
+		held = holdNetmap(s, t.Context(), p, m.Version)
+		assertHeld(t, held)
+		for range 2 {
+			requireNoError(t, s.PutHost(t.Context(), h))
+			assertHeld(t, held)
+			advance(10 * time.Second)
+		}
+		// The renewed presence outlives the first deadline.
+		advance(70 * time.Second)
+		if got := snapshot(t, s, p); len(got.Hosts) != 1 || got.Version != m.Version {
+			t.Fatalf("renewed host view: %+v", got)
+		}
+		for name, change := range map[string]func(*HostEntry){
+			"node key":  func(h *HostEntry) { h.NodeKey = node(101) },
+			"disco key": func(h *HostEntry) { h.DiscoKey = disco(101) },
+			"endpoints": func(h *HostEntry) { h.Endpoints = []netip.AddrPort{endpoint(101)} },
+			"origin":    func(h *HostEntry) { h.Origin = "origin-b" },
+		} {
+			m = snapshot(t, s, p)
+			held = holdNetmap(s, t.Context(), p, m.Version)
+			assertHeld(t, held)
+			change(&h)
+			requireNoError(t, s.PutHost(t.Context(), h))
+			if got := awaitNetmap(t, held); got.Version == m.Version {
+				t.Fatalf("%s change did not change the view", name)
+			}
+		}
+	})
+}
 func TestServerOptionsHoldBelowClientTimeout(t *testing.T) {
 	for _, hold := range []time.Duration{25 * time.Second, 34 * time.Second, 35 * time.Second, 36 * time.Second} {
 		t.Run(hold.String(), func(t *testing.T) {

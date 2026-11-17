@@ -271,7 +271,7 @@ func signalingFixture(t *testing.T) (*derpserver.Server, func(context.Context, s
 }
 
 func TestSignalingRegionSynthesized(t *testing.T) {
-	_, dial := signalingFixture(t)
+	srv, dial := signalingFixture(t)
 	urls := make(chan string, 32)
 	a := testEngine(t, Config{Signaling: &Signaling{RegionID: 0, Dial: func(ctx context.Context, url string) (net.Conn, error) { urls <- url; return dial(ctx, url) }}})
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
@@ -290,6 +290,11 @@ func TestSignalingRegionSynthesized(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	// The signaling server drops a packet for a peer that has not registered,
+	// and a disco ping is sent once. Ping only after both engines are present.
+	poll(t, ctx, func() bool {
+		return srv.IsClientConnectedForTest(nodePublic(a.PublicKey())) && srv.IsClientConnectedForTest(nodePublic(b.PublicKey()))
+	})
 	if pong, err := a.ping(ctx, nodePublic(b.PublicKey())); err != nil || pong.DERPRegionID == 0 {
 		t.Fatalf("region-zero disco pong=%+v err=%v", pong, err)
 	}
@@ -448,3 +453,45 @@ func TestWebSocketDialerSendsHeadersEveryConnect(t *testing.T) {
 // Retain a concrete disco message reference in the relay fixture's package.
 var _ disco.Message = (*disco.Ping)(nil)
 var _ *quic.Conn
+
+// A removed peer's client must receive the application close, not wait for its
+// idle timeout.
+func TestRemovedPeerClientSeesLeaseRemoved(t *testing.T) {
+	server, client, tlsConf := engines(t)
+	srvTransport := &quic.Transport{Conn: server.PacketConn()}
+	t.Cleanup(func() { _ = srvTransport.Close() })
+	srvTLS := tlsConf.Clone()
+	srvTLS.NextProtos = []string{"test"}
+	l, err := srvTransport.Listen(srvTLS, &quic.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = l.Close() })
+	cliTransport := &quic.Transport{Conn: client.PacketConn()}
+	t.Cleanup(func() { _ = cliTransport.Close() })
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	conn, err := cliTransport.Dial(ctx, Addr{Key: server.PublicKey()}, &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"test"}}, &quic.Config{MaxIdleTimeout: time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	accepted, err := l.Accept(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := server.TrackConnection(accepted); err != nil {
+		t.Fatal(err)
+	}
+	if err := server.SetPeers(nil); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-conn.Context().Done():
+	case <-ctx.Done():
+		t.Fatal("client saw no close within 5 s of the peer's removal")
+	}
+	var appErr *quic.ApplicationError
+	if !errors.As(context.Cause(conn.Context()), &appErr) || !appErr.Remote || appErr.ErrorCode != 0x100 || appErr.ErrorMessage != "lease removed" {
+		t.Fatalf("client close = %v, want remote application error 0x100 \"lease removed\"", context.Cause(conn.Context()))
+	}
+}

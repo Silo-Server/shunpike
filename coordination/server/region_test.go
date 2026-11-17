@@ -40,10 +40,16 @@ func regionPublic(k protocol.NodeKey) key.NodePublic { return key.NodePublicFrom
 
 func newRegionFixture(t *testing.T) *regionFixture {
 	t.Helper()
+	return newRegionFixtureWith(t, Options{})
+}
+
+// newRegionFixtureWith builds the fixture on a server made with o.
+func newRegionFixtureWith(t *testing.T, o Options) *regionFixture {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	t.Cleanup(cancel)
 	f := &regionFixture{ctx: ctx, st: NewMemoryStore(), host: key.NewNode(), device: key.NewNode(), hostDisco: disco(91), disco: disco(92)}
-	f.s = newTestServer(t, f.st, Options{})
+	f.s = newTestServer(t, f.st, o)
 	f.d = NewDirectory(f.st, DirectoryOptions{})
 	f.p = f.addDevice(t, f.device, f.disco, "first")
 	requireNoError(t, f.st.PutHost(ctx, HostEntry{Label: "host", NodeKey: regionNode(f.host), DiscoKey: f.hostDisco, PresenceExpires: time.Now().Add(time.Hour)}, time.Now()))
@@ -57,7 +63,13 @@ func newRegionFixture(t *testing.T) *regionFixture {
 
 func (f *regionFixture) addDevice(t *testing.T, k key.NodePrivate, dk protocol.DiscoKey, name string) Principal {
 	t.Helper()
-	p := Principal{Ref: DeviceRef{"account", DeviceID(name)}, NodeKey: regionNode(k), Expires: time.Now().Add(time.Hour)}
+	return f.addDeviceUntil(t, k, dk, name, time.Now().Add(time.Hour))
+}
+
+// addDeviceUntil enrolls and registers a device whose directory entry expires at expires.
+func (f *regionFixture) addDeviceUntil(t *testing.T, k key.NodePrivate, dk protocol.DiscoKey, name string, expires time.Time) Principal {
+	t.Helper()
+	p := Principal{Ref: DeviceRef{"account", DeviceID(name)}, NodeKey: regionNode(k), Expires: expires}
 	_, err := f.s.Enroll(f.ctx, p.Ref, p.NodeKey, nil, p.Expires)
 	requireNoError(t, err)
 	requireNoError(t, f.s.Register(f.ctx, p, protocol.Registration{NodeKey: p.NodeKey, DiscoKey: dk}))
@@ -735,6 +747,161 @@ func TestRegionBudgetDropsThenCloses(t *testing.T) {
 	if st.Drops["budget"] != 2 || st.Closes["budget"] != 1 {
 		t.Fatalf("overrun stats = %+v", st)
 	}
+}
+
+// TestRegionConfiguredBudget checks that RegionOptions.Budget.Limits reaches the
+// stream's envelope: a burst of 3 frames, not the default 20, ends in two drops
+// and a close.
+func TestRegionConfiguredBudget(t *testing.T) {
+	f := newRegionFixture(t)
+	now := time.Now()
+	f.r.o.Clock = func() time.Time { return now }
+	f.r.o.Budget = protocol.Budget{Limits: protocol.BudgetLimits{PairFrameBurst: 3}}
+	c, rd := f.client(t, f.device, f.p, nil)
+	for i := 0; i < 6; i++ {
+		requireNoError(t, c.Send(f.host.Public(), regionPacket(f.disco)))
+	}
+	rd.waitClosed(t, f.ctx)
+	st := f.r.Stats()
+	if st.Drops["budget"] != 2 || st.Closes["budget"] != 1 {
+		t.Fatalf("overrun stats with a burst of 3 = %+v, want 2 budget drops and 1 budget close", st)
+	}
+}
+
+// TestRegionLocalConnectionBytes checks the local stream's connection byte limit,
+// which is apart from the devices' limit: a floor, raised to a number of bytes for
+// each live pair the stream carries. With a device limit that holds the
+// ClientInfo and two frames, a floor that holds one more frame and three pairs'
+// shares, the local stream carries more bytes as it carries more pairs, and a
+// device stream closes on its third frame.
+func TestRegionLocalConnectionBytes(t *testing.T) {
+	// frame is one SendPacket's bytes in the window.
+	const frame, deviceLimit, floor, perPair = 78 + 32 + 5, 400, 500, 250
+	newFixture := func(t *testing.T, floorBytes, perPairBytes int) (*regionFixture, []key.NodePublic) {
+		f := newRegionFixture(t)
+		now := time.Now()
+		f.r.o.Clock = func() time.Time { return now }
+		f.r.o.Budget = protocol.Budget{Limits: protocol.BudgetLimits{ConnectionBytes: deviceLimit}}
+		f.r.o.LocalConnectionBytes = floorBytes
+		f.r.o.LocalConnectionBytesPerPair = perPairBytes
+		dsts := []key.NodePublic{regionPublic(f.p.NodeKey)}
+		for _, name := range []string{"second", "third"} {
+			dsts = append(dsts, regionPublic(f.addDevice(t, key.NewNode(), disco(93), name).NodeKey))
+		}
+		return f, dsts
+	}
+	// send sends n frames round-robin over the first pairs devices.
+	send := func(f *regionFixture, c *derp.Client, dsts []key.NodePublic, pairs, n int) {
+		for i := range n {
+			_ = c.Send(dsts[i%pairs], regionPacket(f.hostDisco))
+		}
+	}
+	t.Run("a limit that scales with the pairs", func(t *testing.T) {
+		f, dsts := newFixture(t, floor, perPair)
+		c, rd := f.local(t)
+		// The ClientInfo and 5 frames pass 500 bytes but not 3 pairs' 750.
+		send(f, c, dsts, 3, 5)
+		regionBarrier(t, f.ctx, c, rd)
+		if st := f.r.Stats(); st.Closes["connection_budget"] != 0 {
+			t.Fatalf("closes = %+v after 5 frames over 3 pairs, want none", st.Closes)
+		}
+	})
+	t.Run("one pair keeps the floor", func(t *testing.T) {
+		f, dsts := newFixture(t, floor, perPair)
+		c, rd := f.local(t)
+		send(f, c, dsts, 1, 6)
+		rd.waitClosed(t, f.ctx)
+		if st := f.r.Stats(); st.Closes["connection_budget"] != 1 {
+			t.Fatalf("closes = %+v, want one connection_budget", st.Closes)
+		}
+	})
+	t.Run("the scaled limit closes too", func(t *testing.T) {
+		f, dsts := newFixture(t, floor, perPair)
+		c, rd := f.local(t)
+		send(f, c, dsts, 3, 8)
+		rd.waitClosed(t, f.ctx)
+		if st := f.r.Stats(); st.Closes["connection_budget"] != 1 {
+			t.Fatalf("closes = %+v, want one connection_budget", st.Closes)
+		}
+	})
+	// The limit never falls within a window. The region clock starts near the
+	// hour the devices stay present, so a short-lived device's pair expires 15 s
+	// into the window while the directory, on the real clock, still lists it.
+	const expiry = 59*time.Minute + 45*time.Second
+	type expiring struct {
+		f       *regionFixture
+		c       *derp.Client
+		rd      *regionReader
+		dsts    []key.NodePublic
+		now     *atomic.Int64
+		advance func(d time.Duration)
+	}
+	newExpiring := func(t *testing.T, perPairBytes int) *expiring {
+		f := newRegionFixtureWith(t, Options{Presence: time.Hour})
+		start := time.Now().Add(59*time.Minute + 30*time.Second)
+		e := &expiring{f: f, now: new(atomic.Int64)}
+		e.now.Store(start.UnixNano())
+		f.r.o.Clock = func() time.Time { return time.Unix(0, e.now.Load()) }
+		f.r.o.Budget = protocol.Budget{Limits: protocol.BudgetLimits{ConnectionBytes: deviceLimit}}
+		f.r.o.LocalConnectionBytes = floor
+		f.r.o.LocalConnectionBytesPerPair = perPairBytes
+		e.dsts = []key.NodePublic{regionPublic(f.p.NodeKey)}
+		for i, name := range []string{"second", "third"} {
+			p := f.addDeviceUntil(t, key.NewNode(), disco(byte(93+i)), name, time.Now().Add(expiry))
+			e.dsts = append(e.dsts, regionPublic(p.NodeKey))
+		}
+		e.c, e.rd = f.local(t)
+		e.advance = func(d time.Duration) {
+			regionBarrier(t, f.ctx, e.c, e.rd)
+			e.now.Add(int64(d))
+		}
+		return e
+	}
+	t.Run("pairs that expire in the window keep the limit", func(t *testing.T) {
+		e := newExpiring(t, 1000)
+		// Three pairs carry 5 frames, which pass the floor of 500 bytes.
+		for i := range 5 {
+			_ = e.c.Send(e.dsts[i%3], regionPacket(e.f.hostDisco))
+		}
+		e.advance(20 * time.Second)
+		// Only the first pair is live. The 10 frames that follow bring the window
+		// to about 1.9 KB: past one pair's share of 1000, under three pairs' 3000.
+		for range 10 {
+			_ = e.c.Send(e.dsts[0], regionPacket(e.f.hostDisco))
+		}
+		regionBarrier(t, e.f.ctx, e.c, e.rd)
+		if st := e.f.r.Stats(); st.Closes["connection_budget"] != 0 {
+			t.Fatalf("closes = %+v after pairs expired in the window, want none", st.Closes)
+		}
+	})
+	t.Run("expired pairs stop counting in a later window", func(t *testing.T) {
+		e := newExpiring(t, 400)
+		for i := range 5 {
+			_ = e.c.Send(e.dsts[i%3], regionPacket(e.f.hostDisco))
+		}
+		e.advance(20 * time.Second)
+		e.advance(90 * time.Second)
+		// The new window carries one pair: its share of 400 is under the floor of 500,
+		// and 8 frames pass the floor. Three pairs' 1200 would hold them.
+		for range 8 {
+			_ = e.c.Send(e.dsts[0], regionPacket(e.f.hostDisco))
+		}
+		e.rd.waitClosed(t, e.f.ctx)
+		if st := e.f.r.Stats(); st.Closes["connection_budget"] != 1 {
+			t.Fatalf("closes = %+v, want one connection_budget", st.Closes)
+		}
+	})
+	t.Run("a device stream keeps the device limit", func(t *testing.T) {
+		f, _ := newFixture(t, floor, perPair)
+		c, rd := f.client(t, f.device, f.p, nil)
+		for range 6 {
+			_ = c.Send(f.host.Public(), regionPacket(f.disco))
+		}
+		rd.waitClosed(t, f.ctx)
+		if st := f.r.Stats(); st.Closes["connection_budget"] != 1 {
+			t.Fatalf("closes = %+v, want one connection_budget", st.Closes)
+		}
+	})
 }
 
 func TestDeliverInboundEnvelope(t *testing.T) {
