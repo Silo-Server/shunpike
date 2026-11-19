@@ -23,7 +23,7 @@ Shunpike is pre-1.0. The exported Go API and the coordination wire protocol can 
 
 ## Forks
 
-Shunpike needs behavior that upstream quic-go and Tailscale do not offer. The two forks carry that behavior as patch series on the `shunpike` branch of each fork. Each patch is opt-in unless noted, so a build that sets no option keeps the upstream behavior. `PATCHES.md` in each fork lists every patch with its tests.
+Shunpike needs behavior that upstream quic-go and Tailscale do not offer. The two forks carry that behavior as patch series on the `main` branch of each fork. Each patch is opt-in unless noted, so a build that sets no option keeps the upstream behavior. `PATCHES.md` in each fork lists every patch with its tests.
 
 ### quic-go
 
@@ -54,9 +54,9 @@ Shunpike needs behavior that upstream quic-go and Tailscale do not offer. The tw
 A consumer module must add the same two `replace` lines to its own `go.mod`. Go ignores `replace` directives in a dependency's `go.mod`, so the lines in this repository do not reach the consumer.
 
 ```
-replace github.com/quic-go/quic-go => github.com/darthShadow/quic-go v0.64.1-shunpike.1
+replace github.com/quic-go/quic-go => github.com/darthShadow/quic-go v0.64.1-shunpike.2
 
-replace tailscale.com => github.com/darthShadow/tailscale v1.104.2-shunpike.1
+replace tailscale.com => github.com/darthShadow/tailscale v1.104.2-shunpike.2
 ```
 
 ## Versions and Tags
