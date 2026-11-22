@@ -13,7 +13,7 @@ import (
 	"github.com/tailscale/wireguard-go/conn"
 	"tailscale.com/types/key"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
 )
 
 // DirectPacketLimit is 1500 minus the IPv6 (40) and UDP (8) headers.

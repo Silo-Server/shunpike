@@ -9,7 +9,7 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
 )
 
 type directoryStore struct {

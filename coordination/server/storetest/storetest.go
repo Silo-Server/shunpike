@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
-	"github.com/darthShadow/shunpike/coordination/server"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/coordination/server"
 )
 
 // Run tests atomic storage semantics against a fresh store for each case.

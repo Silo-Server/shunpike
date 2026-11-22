@@ -10,7 +10,7 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
 )
 
 func node(n byte) protocol.NodeKey   { return protocol.NodeKey{n} }

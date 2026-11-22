@@ -44,7 +44,7 @@ import (
 	"tailscale.com/util/usermetric"
 	"tailscale.com/wgengine/magicsock"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
 )
 
 func testEngine(t *testing.T, c Config) *Engine {

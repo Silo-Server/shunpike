@@ -19,8 +19,8 @@ import (
 	"github.com/coder/websocket"
 	"tailscale.com/net/wsconn"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
-	"github.com/darthShadow/shunpike/coordination/server"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/coordination/server"
 )
 
 // Header carries a principal signed by Sign.

@@ -4,6 +4,10 @@ filippo.io/edwards25519 v1.2.0/go.mod h1:xzAOLCNug/yB62zG1bQ8uziwrIqIuxhctzJT18Q
 filippo.io/mkcert v1.4.4 h1:8eVbbwfVlaqUM7OwuftKc2nuYOoTDQWqsoXmzoXZdbc=
 filippo.io/mkcert v1.4.4/go.mod h1:VyvOchVuAye3BoUsPUOOofKygVwLV2KQMVFJNRq+1dA=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
+github.com/Silo-Server/quic-go v0.64.1-shunpike.2 h1:Ow3e4JwKvoc+NejkMjdgJN9C17t6LFcfqWLFP4ePd+0=
+github.com/Silo-Server/quic-go v0.64.1-shunpike.2/go.mod h1:RAro2j2yN9a9EiPACLHT9IB2NXCvGQmmo/alT0yYI0w=
+github.com/Silo-Server/tailscale v1.104.2-shunpike.2 h1:SZouGrYAFjNuDXLgJrwxTzLk+aeVfFPqotl/oRg3a+o=
+github.com/Silo-Server/tailscale v1.104.2-shunpike.2/go.mod h1:D+gqEyJjFnwIaojBLaKxUbOfEO3cRXOaFaOZ5BIvYqs=
 github.com/akutz/memconn v0.1.0 h1:NawI0TORU4hcOMsMr11g7vwlCdkYeLKXBcxWu2W/P8A=
 github.com/akutz/memconn v0.1.0/go.mod h1:Jo8rI7m0NieZyLI5e2CDlRdRqRRB4S7Xp77ukDjH+Fw=
 github.com/alexbrainman/sspi v0.0.0-20250919150558-7d374ff0d59e h1:4dAU9FXIyQktpoUAgOJK3OTFc/xug0PCXYCqU0FgDKI=
@@ -54,10 +58,6 @@ github.com/creachadair/msync v0.10.1 h1:14jT5Ujob64Zp2D3ZcUidayDMoXikhmYN8xBxEuP
 github.com/creachadair/msync v0.10.1/go.mod h1:dFf4Z0cxE2nibFmAdq5OqTuGn++GgEqA9JuKH+7ceSA=
 github.com/creachadair/taskgroup v0.14.4 h1:ttR8StLWmYA1O6x96YlTpQLXjKyRpO4RBo+OcO6W6C0=
 github.com/creachadair/taskgroup v0.14.4/go.mod h1:uhCtIEsa7zpeMAFixddhCYjbJi7e4JMyU7OXUygkSsg=
-github.com/darthShadow/quic-go v0.64.1-shunpike.2 h1:7v0OFZ+w+mpdoS0uoW/VwTIcEZ593xdGK1jCyjclu10=
-github.com/darthShadow/quic-go v0.64.1-shunpike.2/go.mod h1:RAro2j2yN9a9EiPACLHT9IB2NXCvGQmmo/alT0yYI0w=
-github.com/darthShadow/tailscale v1.104.2-shunpike.2 h1:YGnyOHX2DdH70chiPGOmxIOhxqDfFGVPLVRT+djb4YM=
-github.com/darthShadow/tailscale v1.104.2-shunpike.2/go.mod h1:D+gqEyJjFnwIaojBLaKxUbOfEO3cRXOaFaOZ5BIvYqs=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=

@@ -21,7 +21,7 @@ import (
 	"tailscale.com/net/memnet"
 	"tailscale.com/types/key"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
 )
 
 const admissionWait = 2 * time.Second

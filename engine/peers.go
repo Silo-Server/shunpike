@@ -16,7 +16,7 @@ import (
 	"tailscale.com/tailcfg"
 	"tailscale.com/types/key"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
 )
 
 // Peer is a leased node identity and its independent confirmation of this engine.

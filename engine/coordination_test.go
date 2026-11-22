@@ -12,9 +12,9 @@ import (
 
 	"tailscale.com/types/key"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
-	"github.com/darthShadow/shunpike/engine"
-	"github.com/darthShadow/shunpike/internal/testcoord"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/engine"
+	"github.com/Silo-Server/shunpike/internal/testcoord"
 )
 
 func TestClientDefaultSignalRegion(t *testing.T) {

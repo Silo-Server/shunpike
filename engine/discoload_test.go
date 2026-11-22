@@ -71,10 +71,10 @@ import (
 	"tailscale.com/net/stun"
 	"tailscale.com/types/key"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
-	"github.com/darthShadow/shunpike/coordination/server"
-	"github.com/darthShadow/shunpike/engine"
-	"github.com/darthShadow/shunpike/engine/n4"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/coordination/server"
+	"github.com/Silo-Server/shunpike/engine"
+	"github.com/Silo-Server/shunpike/engine/n4"
 )
 
 var (
