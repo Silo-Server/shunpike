@@ -8,7 +8,7 @@ import (
 	"tailscale.com/types/key"
 	"tailscale.com/wgengine/magicsock"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
 )
 
 func (e *Engine) relayedDataAllowed(k protocol.NodeKey) bool {

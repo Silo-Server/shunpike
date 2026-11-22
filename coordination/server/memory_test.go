@@ -1,8 +1,8 @@
 package server_test
 
 import (
-	"github.com/darthShadow/shunpike/coordination/server"
-	"github.com/darthShadow/shunpike/coordination/server/storetest"
+	"github.com/Silo-Server/shunpike/coordination/server"
+	"github.com/Silo-Server/shunpike/coordination/server/storetest"
 	"testing"
 )
 

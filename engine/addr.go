@@ -1,6 +1,6 @@
 package engine
 
-import "github.com/darthShadow/shunpike/coordination/protocol"
+import "github.com/Silo-Server/shunpike/coordination/protocol"
 
 // Addr identifies a node independently of its current UDP endpoint.
 type Addr struct{ Key protocol.NodeKey }

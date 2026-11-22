@@ -22,7 +22,7 @@ import (
 	"tailscale.com/types/logger"
 	"tailscale.com/wgengine/magicsock"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
 )
 
 func TestConfigValidate(t *testing.T) {

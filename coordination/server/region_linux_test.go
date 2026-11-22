@@ -19,8 +19,8 @@ import (
 	"tailscale.com/net/stun/stuntest"
 	"tailscale.com/net/wsconn"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
-	"github.com/darthShadow/shunpike/engine"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/engine"
 )
 
 type regionWebSocketConn struct {

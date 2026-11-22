@@ -10,7 +10,7 @@ import (
 	"github.com/tailscale/wireguard-go/conn"
 	"tailscale.com/types/key"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
 )
 
 func TestPacketConnDropsUnknownSource(t *testing.T) {

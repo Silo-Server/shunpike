@@ -28,9 +28,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
-	"github.com/darthShadow/shunpike/engine"
-	"github.com/darthShadow/shunpike/engine/n4"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/engine"
+	"github.com/Silo-Server/shunpike/engine/n4"
 )
 
 type identity struct {

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
 )
 
 const directoryReadTimeout = 2 * time.Second

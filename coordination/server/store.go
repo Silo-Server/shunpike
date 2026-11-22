@@ -7,7 +7,7 @@ import (
 	"net/netip"
 	"time"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
 )
 
 // AccountID identifies the caller's account namespace.

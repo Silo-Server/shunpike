@@ -27,7 +27,7 @@ Shunpike needs behavior that upstream quic-go and Tailscale do not offer. The tw
 
 ### quic-go
 
-[github.com/darthShadow/quic-go](https://github.com/darthShadow/quic-go) patches `v0.64.1`.
+[github.com/Silo-Server/quic-go](https://github.com/Silo-Server/quic-go) patches `v0.64.1`.
 
 - An opt-in BBRv3 congestion sender, chosen with `Config.CongestionControl`. The zero value keeps upstream's sender. Per-connection loss settings select the loss policy.
 - A BBRv3 pacer that releases 0.5 ms lumps per wakeup, capped by one GSO buffer and a quarter of the congestion window. The default sender keeps upstream's pacer.
@@ -40,7 +40,7 @@ Shunpike needs behavior that upstream quic-go and Tailscale do not offer. The tw
 
 ### Tailscale
 
-[github.com/darthShadow/tailscale](https://github.com/darthShadow/tailscale) patches `v1.104.2`.
+[github.com/Silo-Server/tailscale](https://github.com/Silo-Server/tailscale) patches `v1.104.2`.
 
 - `Options.RelayedDataAllowed` decides for each peer whether non-disco data may go over DERP, and `Conn.DERPDataSuppressed` counts refused copies.
 - `Options.QUICDontFragment` sets Don't Fragment on every UDP bind, including the socket that replaces one after a rebind.
@@ -54,9 +54,9 @@ Shunpike needs behavior that upstream quic-go and Tailscale do not offer. The tw
 A consumer module must add the same two `replace` lines to its own `go.mod`. Go ignores `replace` directives in a dependency's `go.mod`, so the lines in this repository do not reach the consumer.
 
 ```
-replace github.com/quic-go/quic-go => github.com/darthShadow/quic-go v0.64.1-shunpike.2
+replace github.com/quic-go/quic-go => github.com/Silo-Server/quic-go v0.64.1-shunpike.2
 
-replace tailscale.com => github.com/darthShadow/tailscale v1.104.2-shunpike.2
+replace tailscale.com => github.com/Silo-Server/tailscale v1.104.2-shunpike.2
 ```
 
 ## Versions and Tags

@@ -3,9 +3,12 @@ set -euo pipefail
 
 # Explicit files exercise the same predicate as the repository scan.
 pattern='si''lo|sp''ike|\bw[0-9]{2}[a-z]?\b|\bs1-'
+# Module paths name the organization that hosts the repositories, not a product,
+# so that prefix is dropped before matching.
+org_prefix='github\.com/Si''lo-Server/'
 check_file() {
   local status=0
-  grep -nEi -- "$pattern" "$1" || status=$?
+  sed "s#${org_prefix}##g" -- "$1" | grep -nEi -- "$pattern" || status=$?
   case "$status" in
     0) return 1 ;;
     1) return 0 ;;

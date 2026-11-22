@@ -306,7 +306,7 @@ func TestProtocolImportsStandardLibraryOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("go list: %v\n%s", err, output)
 	}
-	if got := strings.Fields(string(output)); !slices.Equal(got, []string{"github.com/darthShadow/shunpike/coordination/protocol"}) {
+	if got := strings.Fields(string(output)); !slices.Equal(got, []string{"github.com/Silo-Server/shunpike/coordination/protocol"}) {
 		t.Fatalf("nonstandard packages = %v, want only protocol itself", got)
 	}
 }

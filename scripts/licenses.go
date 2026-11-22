@@ -31,7 +31,7 @@ func generate() error {
 	if err != nil {
 		return err
 	}
-	libs, err := licenses.Libraries(context.Background(), classifier, false, []string{"github.com/darthShadow/shunpike"}, "./...")
+	libs, err := licenses.Libraries(context.Background(), classifier, false, []string{"github.com/Silo-Server/shunpike"}, "./...")
 	if err != nil {
 		return err
 	}

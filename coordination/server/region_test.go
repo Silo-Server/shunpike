@@ -19,7 +19,7 @@ import (
 	"tailscale.com/net/netmon"
 	"tailscale.com/types/key"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
 )
 
 type regionFixture struct {

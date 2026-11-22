@@ -23,7 +23,7 @@ import (
 	"tailscale.com/util/usermetric"
 	"tailscale.com/wgengine/magicsock"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
 )
 
 // NodePrivate holds a clamped X25519 scalar. Its zero value is unconfigured.

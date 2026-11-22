@@ -10,7 +10,7 @@ import (
 	"tailscale.com/ipn/ipnstate"
 	"tailscale.com/types/key"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
 )
 
 const (

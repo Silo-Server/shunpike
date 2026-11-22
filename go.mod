@@ -1,4 +1,4 @@
-module github.com/darthShadow/shunpike
+module github.com/Silo-Server/shunpike
 
 go 1.27.4
 
@@ -59,8 +59,8 @@ require (
 	k8s.io/klog/v2 v2.140.0 // indirect
 )
 
-replace github.com/quic-go/quic-go => github.com/darthShadow/quic-go v0.64.1-shunpike.2
+replace github.com/quic-go/quic-go => github.com/Silo-Server/quic-go v0.64.1-shunpike.2
 
-replace tailscale.com => github.com/darthShadow/tailscale v1.104.2-shunpike.2
+replace tailscale.com => github.com/Silo-Server/tailscale v1.104.2-shunpike.2
 
 tool github.com/google/go-licenses/v2

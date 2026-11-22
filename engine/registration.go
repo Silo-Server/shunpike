@@ -7,7 +7,7 @@ import (
 
 	"tailscale.com/wgengine/magicsock"
 
-	"github.com/darthShadow/shunpike/coordination/protocol"
+	"github.com/Silo-Server/shunpike/coordination/protocol"
 )
 
 // Registration returns at most 64 endpoints, preferring STUN and port mappings,
